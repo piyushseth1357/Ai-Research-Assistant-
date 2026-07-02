@@ -1,0 +1,7 @@
+.env
+API key.txt
+__pycache__/
+*.pyc
+venv/
+report_*.txt
+reports_*.txt

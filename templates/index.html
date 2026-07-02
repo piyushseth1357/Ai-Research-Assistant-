@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Research Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Marked.js for Markdown parsing -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Highlight.js for Code Highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a3d;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --green: #00d4aa;
+    --glow: rgba(108,99,255,0.3);
+  }
+  .light {
+    --bg: #f0f0f8;
+    --surface: #ffffff;
+    --surface2: #e8e8f5;
+    --border: #d0d0e8;
+    --text: #1a1a2e;
+    --text2: #6666aa;
+    --glow: rgba(108,99,255,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    animation: float 8s ease-in-out infinite;
+  }
+  .orb1 { width:400px; height:400px; background:rgba(108,99,255,0.15); top:-100px; right:-100px; }
+  .orb2 { width:300px; height:300px; background:rgba(255,101,132,0.1); bottom:-50px; left:-50px; animation-delay:-4s; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+
+  /* TOP BAR */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 60px;
+    background: rgba(19,19,26,0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+  }
+  .light .topbar { background: rgba(255,255,255,0.8); }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .mode-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.3s;
+  }
+  .mode-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .online .mode-dot { background: var(--green); }
+  .offline .mode-dot { background: var(--accent2); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .btn-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+  .btn-icon:hover { background: var(--surface2); border-color: var(--accent); }
+
+  /* MAIN */
+  .main {
+    display: flex;
+    height: calc(100vh - 60px);
+    margin-top: 60px;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .reports-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .reports-list::-webkit-scrollbar { width: 4px; }
+  .reports-list::-webkit-scrollbar-track { background: transparent; }
+  .reports-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .report-item {
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .report-item:hover {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+  .report-item.active {
+    background: var(--surface2);
+    border-color: var(--accent);
+  }
+  .report-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    text-transform: capitalize;
+  }
+  .report-preview {
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* CONTENT */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .output-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+  }
+  .output-area::-webkit-scrollbar { width: 4px; }
+  .output-area::-webkit-scrollbar-track { background: transparent; }
+  .output-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* WELCOME */
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .welcome-icon {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 24px;
+    box-shadow: 0 20px 60px var(--glow);
+    animation: glow 3s ease-in-out infinite;
+  }
+  @keyframes glow { 0%,100%{box-shadow:0 20px 60px var(--glow)} 50%{box-shadow:0 20px 80px rgba(108,99,255,0.5)} }
+  .welcome h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--text), var(--accent));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .welcome p {
+    color: var(--text2);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .chip {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text);
+  }
+  .chip:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+    transform: translateY(-2px);
+  }
+
+  /* RESULT */
+  .result-card {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    animation: slideUp 0.4s ease;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .result-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+  }
+  .result-topic {
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .result-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+  }
+  .result-content {
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  /* STATUS */
+  .status-card {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: slideUp 0.4s ease;
+  }
+  .status-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .status-text { font-size: 15px; font-weight: 500; }
+  .status-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* SEARCH BAR */
+  .search-container {
+    padding: 20px 40px 30px;
+    display: flex;
+    justify-content: center;
+  }
+  .search-box {
+    width: 100%;
+    max-width: 700px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 4px 4px 20px;
+    transition: all 0.3s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 8px 40px var(--glow);
+  }
+  .search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    padding: 12px 0;
+  }
+  .search-input::placeholder { color: var(--text2); }
+  .search-btn {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .search-btn:hover { transform: scale(1.05); opacity: 0.9; }
+  .search-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* MODE TOGGLE */
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .mode-btn {
+    padding: 10px 24px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .mode-btn:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .mode-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    border-color: transparent;
+  }
+  .generated-image {
+    width: 100%;
+    max-width: 600px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    animation: slideUp 0.4s ease;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .made-by {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text2);
+    padding-bottom: 8px;
+  }
+  .made-by span { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    AI Research Assistant
+  </div>
+  <div class="mode-badge offline" id="modeBadge">
+    <div class="mode-dot"></div>
+    <span id="modeText">Checking...</span>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">🌙</button>
+    <button class="btn-icon" onclick="loadReports()" title="Refresh Reports">🔄</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">📁 Saved Reports</div>
+    <div class="reports-list" id="reportsList">
+      <div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">
+        Koi report nahi hai abhi...
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="output-area" id="outputArea">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🔬</div>
+        <h1>What Would You like to Research?</h1>
+        <p>Enter any topic - AI will automatically research and generate a professional report for you!</p>
+        <div class="chips">
+          <div class="chip" onclick="setTopic('Artificial Intelligence')">🤖 Artificial Intelligence</div>
+          <div class="chip" onclick="setTopic('Python Programming')">🐍 Python Programming</div>
+          <div class="chip" onclick="setTopic('Machine Learning')">📊 Machine Learning</div>
+          <div class="chip" onclick="setTopic('Cyber Security')">🔒 Cyber Security</div>
+          <div class="chip" onclick="setTopic('Blockchain')">⛓️ Blockchain</div>
+          <div class="chip" onclick="setTopic('Cloud Computing')">☁️ Cloud Computing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEARCH BAR -->
+    <div class="search-container">
+      <div class="search-box">
+        <span style="font-size:20px;cursor:pointer;" onclick="document.getElementById('fileUpload').click()" title="Upload File (PDF/TXT)">📎</span>
+        <input type="file" id="fileUpload" style="display:none" onchange="handleFileUpload(event)" accept=".pdf,.txt,.docx,.png,.jpg,.jpeg">
+        <input
+          type="text"
+          class="search-input"
+          id="searchInput"
+          placeholder="Type a topic and press Enter..."
+          onkeypress="if(event.key==='Enter') search()"
+        />
+        <button class="search-btn" id="micBtn" onclick="startVoice()" title="Voice Typing" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-right:8px;">🎙️</button>
+        <button class="search-btn" id="searchBtn" onclick="search()">➤</button>
+      </div>
+    </div>
+    <div class="made-by">Made by <span>Piyush Seth</span></div>
+  </div>
+</div>
+
+<script>
+let isDark = true;
+let currentTopic = '';
+
+// Check mode
+async function checkMode() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    const badge = document.getElementById('modeBadge');
+    const text = document.getElementById('modeText');
+    badge.className = 'mode-badge ' + (d.online ? 'online' : 'offline');
+    text.textContent = d.mode;
+  } catch(e) {}
+}
+
+// Load reports
+async function loadReports() {
+  try {
+    const r = await fetch('/reports');
+    const d = await r.json();
+    const list = document.getElementById('reportsList');
+    if(d.reports.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">No reports saved yet...</div>';
+      return;
+    }
+    list.innerHTML = d.reports.map(rep => `
+      <div class="report-item" onclick="viewReport('${rep.filename}', this)">
+        <div class="report-name">${rep.name}</div>
+        <div class="report-preview">${rep.preview}</div>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+// View saved report
+async function viewReport(filename, el) {
+  document.querySelectorAll('.report-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  try {
+    const r = await fetch(`/report/${filename}`);
+    const d = await r.json();
+    const topic = filename.replace('report_','').replace('.txt','').replace(/_/g,' ');
+    showResult(topic, d.content);
+  } catch(e) {}
+}
+
+// Set topic from chip
+function setTopic(topic) {
+  document.getElementById('searchInput').value = topic;
+  search();
+}
+
+// Search
+async function search() {
+  const topic = document.getElementById('searchInput').value.trim();
+  if(!topic && !window.uploadedImageFile) return;
+
+  currentTopic = topic;
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+
+  const area = document.getElementById('outputArea');
+  area.innerHTML = `
+    <div class="status-card" id="loadingCard">
+      <div class="status-spinner"></div>
+      <div>
+        <div class="status-text" id="statusText">Processing...</div>
+        <div class="status-sub" id="statusSub">Preparing request...</div>
+      </div>
+    </div>
+    <div id="dynamicResult" class="result-card" style="display:none; flex-direction:column;">
+      <div class="result-header">
+        <div class="result-topic" id="dynamicTopic">📋 Assistant Response</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn-icon" onclick="readAloud(this)" title="Read Aloud" style="width:30px;height:30px;font-size:14px;">🔊</button>
+          <div class="result-badge">Active 🟢</div>
+        </div>
+      </div>
+      <div class="result-content" id="dynamicTextContent" style="padding:24px; white-space:pre-wrap;"></div>
+      <div id="dynamicImageContent" style="padding:0 24px 24px; text-align:center;"></div>
+    </div>
+  `;
+
+  const formData = new FormData();
+  formData.append("prompt", topic || "Please process the attached file.");
+  if (window.uploadedImageFile) {
+    formData.append("file", window.uploadedImageFile);
+  }
+
+  try {
+    const response = await fetch('/ask', { method: 'POST', body: formData });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = '';
+
+    let fullText = '';
+    const dynCard = document.getElementById('dynamicResult');
+    const loadCard = document.getElementById('loadingCard');
+    const textDiv = document.getElementById('dynamicTextContent');
+    const imgDiv = document.getElementById('dynamicImageContent');
+    const statText = document.getElementById('statusText');
+
+    marked.setOptions({
+      highlight: function(code, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value;
+        }
+        return hljs.highlightAuto(code).value;
+      }
+    });
+
+    while(true) {
+      const {done, value} = await reader.read();
+      if(done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for(const line of lines) {
+        if(line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if(data.type === 'status') {
+              if (statText) statText.textContent = data.msg;
+            } else if (data.type === 'stream_start') {
+              if (loadCard) loadCard.style.display = 'none';
+              dynCard.style.display = 'flex';
+              if (data.intents) {
+                let intentNames = [];
+                if(data.intents.chat) intentNames.push('Chat');
+                if(data.intents.research) intentNames.push('Research');
+                if(data.intents.image_gen) intentNames.push('Gen Image');
+                if(data.intents.image_edit) intentNames.push('Edit Image');
+                if(intentNames.length) {
+                   document.getElementById('dynamicTopic').textContent = '🤖 ' + intentNames.join(' + ');
+                }
+              }
+            } else if (data.type === 'chunk') {
+              fullText += data.content;
+              textDiv.innerHTML = marked.parse(fullText);
+            } else if (data.type === 'image') {
+              imgDiv.innerHTML += `
+                <img src="${data.url}" class="generated-image" style="margin-top:20px;max-width:100%;border-radius:10px;">
+                <p style="color:var(--text2);margin-top:10px;">${data.caption}</p>
+                <br>
+                <a href="${data.url}" download="ai_image.jpg"
+                   style="display:inline-block;padding:10px 20px;
+                          background:linear-gradient(135deg,var(--accent),var(--accent2));
+                          color:white;border-radius:10px;
+                          text-decoration:none;font-weight:600;margin-bottom:20px;">
+                  ⬇️ Download Image
+                </a>
+              `;
+            } else if (data.type === 'save') {
+              loadReports();
+            } else if (data.type === 'done') {
+              document.querySelector('.result-badge').textContent = 'Completed ✅';
+            }
+          } catch(e) {
+            console.error("JSON Parse Error on chunk:", e);
+          }
+        }
+      }
+    }
+    
+    window.uploadedImageFile = null;
+    document.getElementById('searchInput').placeholder = "Type your prompt here...";
+
+  } catch(e) {
+    area.innerHTML = `<div class="status-card"><div>❌ Error: ${e.message}</div></div>`;
+  }
+
+  btn.disabled = false;
+}
+
+function showResult(topic, content) {
+  const area = document.getElementById('outputArea');
+  
+  // Parse Markdown
+  marked.setOptions({
+    highlight: function(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    }
+  });
+  const htmlContent = marked.parse(content);
+
+  area.innerHTML = `
+    <div class="result-card">
+      <div class="result-header">
+        <div class="result-topic">📋 ${topic}</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn-icon" onclick="readAloud(this)" title="Read Aloud" style="width:30px;height:30px;font-size:14px;">🔊</button>
+          <div class="result-badge">Report Ready ✅</div>
+        </div>
+      </div>
+      <div class="result-content" id="resultContent" style="font-family: 'Space Grotesk', sans-serif;">${htmlContent}</div>
+    </div>
+  `;
+}
+
+function readAloud(btn) {
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    btn.textContent = '🔊';
+    return;
+  }
+  const textElem = document.getElementById('dynamicTextContent') || document.getElementById('resultContent');
+  const text = textElem ? textElem.innerText : '';
+  if(!text) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.onend = () => { btn.textContent = '🔊'; };
+  btn.textContent = '⏸️';
+  window.speechSynthesis.speak(utterance);
+}
+
+// Voice Assistant
+function startVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Voice recognition not supported in this browser. Use Chrome.");
+    return;
+  }
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-IN';
+  recognition.onstart = function() {
+    document.getElementById('micBtn').style.background = 'var(--accent2)';
+  };
+  recognition.onresult = function(event) {
+    const transcript = event.results[0][0].transcript;
+    document.getElementById('searchInput').value = transcript;
+    search();
+  };
+  recognition.onerror = function(event) {
+    console.error(event.error);
+  };
+  recognition.onend = function() {
+    document.getElementById('micBtn').style.background = 'transparent';
+  };
+  recognition.start();
+}
+
+// File Upload
+async function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+
+  const area = document.getElementById('outputArea');
+  area.innerHTML = `
+    <div class="status-card">
+      <div class="status-spinner"></div>
+      <div>
+        <div class="status-text">Uploading File...</div>
+        <div class="status-sub">${file.name}</div>
+      </div>
+    </div>
+  `;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if(data.success) {
+      if(data.is_image) {
+        window.uploadedImageFile = file;
+        document.getElementById('searchInput').value = "";
+        document.getElementById('searchInput').placeholder = "Image loaded! Type what you want to do with it...";
+        area.innerHTML = `
+          <div class="status-card" style="flex-direction:column; align-items:center;">
+            <div style="font-weight:600;margin-bottom:10px;">✅ Image Attached!</div>
+            <img src="${data.image_data}" style="max-height:200px; border-radius:10px; border:1px solid var(--border);">
+            <div style="margin-top:10px;font-size:13px;color:var(--text2);">Type your instruction below and hit Send.</div>
+          </div>
+        `;
+      } else {
+        document.getElementById('searchInput').value = "Analyze document: \n" + data.extracted_text.substring(0, 1000) + "...";
+        area.innerHTML = `<div class="status-card"><div>✅ File attached! Hit send to analyze.</div></div>`;
+      }
+    } else {
+      area.innerHTML = `<div class="status-card"><div>❌ Upload failed: ${data.error}</div></div>`;
+    }
+  } catch(e) {
+    area.innerHTML = `<div class="status-card"><div>❌ Error: ${e.message}</div></div>`;
+  }
+  btn.disabled = false;
+}
+
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  document.querySelector('[onclick="toggleTheme()"]').textContent = isDark ? '🌙' : '☀️';
+}
+
+// Init
+checkMode();
+loadReports();
+setInterval(checkMode, 10000);
+</script>
+</body>
+</html>

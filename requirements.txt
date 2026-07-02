@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+ollama
+crewai
+python-dotenv
+litellm
+python-multipart
+PyMuPDF
+httpx
+requests
+rembg
+Pillow
+onnxruntime
