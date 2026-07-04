@@ -21,7 +21,6 @@ import requests
 from urllib.parse import quote
 from io import BytesIO
 from PIL import Image
-from rembg import remove
 
 def internet_hai():
     try:
@@ -174,6 +173,7 @@ async def ask_endpoint(prompt: str = Form(...), file: UploadFile = File(None)):
                 try:
                     if intents["image_edit"] and is_image:
                         asyncio.run_coroutine_threadsafe(queue.put({"type": "chunk", "content": "\n\n> ⏳ **Status:** Removing background with High Quality Matting..."}), running_loop)
+                        from rembg import remove
                         # Use alpha matting for much smoother, realistic edges
                         foreground_bytes = remove(
                             file_bytes, 
