@@ -11,7 +11,9 @@ import asyncio
 import ollama
 import concurrent.futures
 import fitz  # PyMuPDF
-from agents import internet_hai
+import urllib.parse
+import urllib.request
+import socket
 import litellm
 import random
 import base64
@@ -20,6 +22,13 @@ from urllib.parse import quote
 from io import BytesIO
 from PIL import Image
 from rembg import remove
+
+def internet_hai():
+    try:
+        urllib.request.urlopen("https://www.google.com", timeout=3)
+        return True
+    except (urllib.error.URLError, socket.gaierror, Exception):
+        return False
 
 app = FastAPI()
 
